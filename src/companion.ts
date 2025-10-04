@@ -221,6 +221,9 @@ const handleNewProblem = async (problem: Problem) => {
         problem.name = splitUrl[splitUrl.length - 1];
     }
     const problemFileName = getProblemFileName(problem, extn);
+    vscode.window.showErrorMessage(
+        folder,
+    );
     const srcPath = path.join(folder, problemFileName);
 
     // Add fields absent in competitive companion.
@@ -233,6 +236,7 @@ const handleNewProblem = async (problem: Problem) => {
     if (!existsSync(srcPath)) {
         writeFileSync(srcPath, '');
     }
+    
     saveProblem(srcPath, problem);
     const doc = await vscode.workspace.openTextDocument(srcPath);
 

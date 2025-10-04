@@ -4,7 +4,7 @@ import { Problem, CphSubmitResponse, CphEmptyResponse } from './types';
 import { saveProblem } from './parser';
 import * as vscode from 'vscode';
 import path from 'path';
-import { writeFileSync, readFileSync, existsSync } from 'fs';
+import { writeFileSync, readFileSync, existsSync, mkdirSync } from 'fs';
 import { isCodeforcesUrl, isLuoguUrl, isAtCoderUrl, randomId } from './utils';
 import {
     getDefaultLangPref,
@@ -146,31 +146,113 @@ export const setupCompanionServer = () => {
     }
 };
 
-export const getProblemFileName = (problem: Problem, ext: string) => {
-    if (isCodeforcesUrl(new URL(problem.url)) && useShortCodeForcesName()) {
-        return `${getProblemName(problem.url)}.${ext}`;
-    } else if (isLuoguUrl(new URL(problem.url)) && useShortLuoguName()) {
-        // Url is like https://www.luogu.com.cn/problem/P1000
-        const pattern = /problem\/(\w+)/;
-        const match = problem.url.match(pattern);
-        return `${match?.[1] ?? ''}.${ext}`;
-    } else if (isAtCoderUrl(new URL(problem.url)) && useShortAtCoderName()) {
-        // Url is like https://atcoder.jp/contests/abc311/tasks/abc311_a
-        const pattern = /tasks\/(\w+)_(\w+)/;
-        const match = problem.url.match(pattern);
-        return `${match?.[1] ?? ''}${match?.[2] ?? ''}.${ext}`;
-    } else {
-        globalThis.logger.log(
-            isCodeforcesUrl(new URL(problem.url)),
-            useShortCodeForcesName(),
-        );
-
-        const words = words_in_text(problem.name);
-        if (words === null) {
-            return `${problem.name.replace(/\W+/g, '_')}.${ext}`;
-        } else {
-            return `${words.join('_')}.${ext}`;
+// 新增：获取题目编号的函数
+const getProblemIdFromUrl = (url: string): string | null => {
+    try {
+        const urlObj = new URL(url);
+        
+        if (isLuoguUrl(urlObj)) {
+            // 洛谷URL格式：https://www.luogu.com.cn/problem/P1000
+            const match = url.match(/problem\/(P\d+)/);
+            return match ? match[1] : null;
+        } else if (isAtCoderUrl(urlObj)) {
+            // AtCoder URL格式：https://atcoder.jp/contests/abc311/tasks/abc311_a
+            const match = url.match(/tasks\/(.+)/);
+            return match ? match[1] : null;
+        } else if (isCodeforcesUrl(urlObj)) {
+            // Codeforces URL格式：https://codeforces.com/problemset/problem/1145/A
+            // 或者：https://codeforces.com/contest/1145/problem/A
+            let match = url.match(/problemset\/problem\/(\d+)\/(\w+)/);
+            if (match) {
+                return `CF${match[1]}${match[2]}`;
+            }
+            match = url.match(/contest\/(\d+)\/problem\/(\w+)/);
+            if (match) {
+                return `CF${match[1]}${match[2]}`;
+            }
         }
+    } catch (e) {
+        globalThis.logger.error('Error parsing URL:', e);
+    }
+    return null;
+};
+
+// 新增：获取分类文件夹的函数（针对洛谷）
+const getLuoguCategory = (problemId: string): string => {
+    const numMatch = problemId.match(/P(\d+)/);
+    if (!numMatch) return 'P12001+';
+    
+    const num = parseInt(numMatch[1]);
+    if (num <= 3000) return 'P1000-P3000';
+    if (num <= 6000) return 'P3001-P6000';
+    if (num <= 9000) return 'P6001-P9000';
+    if (num <= 12000) return 'P9001-P12000';
+    return 'P12001+';
+};
+
+// 修改：获取问题文件路径
+export const getProblemFileName = (problem: Problem, ext: string) => {
+    const folder = vscode.workspace.workspaceFolders?.[0].uri.fsPath;
+    const isOICodes = folder && path.basename(folder) === 'OI-Codes';
+    
+    if (!isOICodes) {
+        // 保持原有逻辑
+        if (isCodeforcesUrl(new URL(problem.url)) && useShortCodeForcesName()) {
+            return `${getProblemName(problem.url)}.${ext}`;
+        } else if (isLuoguUrl(new URL(problem.url)) && useShortLuoguName()) {
+            const pattern = /problem\/(\w+)/;
+            const match = problem.url.match(pattern);
+            return `${match?.[1] ?? ''}.${ext}`;
+        } else if (isAtCoderUrl(new URL(problem.url)) && useShortAtCoderName()) {
+            const pattern = /tasks\/(\w+)_(\w+)/;
+            const match = problem.url.match(pattern);
+            return `${match?.[1] ?? ''}${match?.[2] ?? ''}.${ext}`;
+        } else {
+            const words = words_in_text(problem.name);
+            if (words === null) {
+                return `${problem.name.replace(/\W+/g, '_')}.${ext}`;
+            } else {
+                return `${words.join('_')}.${ext}`;
+            }
+        }
+    }
+
+    // OI-Codes 文件夹下的新逻辑
+    const problemId = getProblemIdFromUrl(problem.url);
+    
+    if (isLuoguUrl(new URL(problem.url)) && problemId) {
+        const category = getLuoguCategory(problemId);
+        return `Luogu/${category}/${problemId}/${problemId}.${ext}`;
+    } else if (isAtCoderUrl(new URL(problem.url)) && problemId) {
+        return `ATCoder/${problemId}/${problemId}.${ext}`;
+    } else if (isCodeforcesUrl(new URL(problem.url)) && problemId) {
+        return `Codeforces/${problemId}/${problemId}.${ext}`;
+    } else {
+        // 其他题目
+        const nameWithUnderscores = problem.name.replace(/\s+/g, '_');
+        const originName = (() => {
+            // 使用原有的文件名生成逻辑
+            if (isCodeforcesUrl(new URL(problem.url)) && useShortCodeForcesName()) {
+                return `${getProblemName(problem.url)}.${ext}`;
+            } else if (isLuoguUrl(new URL(problem.url)) && useShortLuoguName()) {
+                const pattern = /problem\/(\w+)/;
+                const match = problem.url.match(pattern);
+                return `${match?.[1] ?? ''}.${ext}`;
+            } else if (isAtCoderUrl(new URL(problem.url)) && useShortAtCoderName()) {
+                const pattern = /tasks\/(\w+)_(\w+)/;
+                const match = problem.url.match(pattern);
+                return `${match?.[1] ?? ''}${match?.[2] ?? ''}.${ext}`;
+            } else {
+                const words = words_in_text(problem.name);
+                if (words === null) {
+                    return `${problem.name.replace(/\W+/g, '_')}.${ext}`;
+                } else {
+                    return `${words.join('_')}.${ext}`;
+                }
+            }
+        })();
+        
+        return `Other/${nameWithUnderscores}/${originName}`;
     }
 };
 
@@ -220,11 +302,15 @@ const handleNewProblem = async (problem: Problem) => {
         const splitUrl = problem.url.split('/');
         problem.name = splitUrl[splitUrl.length - 1];
     }
+    
     const problemFileName = getProblemFileName(problem, extn);
-    vscode.window.showErrorMessage(
-        folder,
-    );
     const srcPath = path.join(folder, problemFileName);
+
+    // 确保目录存在
+    const dir = path.dirname(srcPath);
+    if (!existsSync(dir)) {
+        mkdirSync(dir, { recursive: true });
+    }
 
     // Add fields absent in competitive companion.
     problem.srcPath = srcPath;
@@ -236,7 +322,6 @@ const handleNewProblem = async (problem: Problem) => {
     if (!existsSync(srcPath)) {
         writeFileSync(srcPath, '');
     }
-    
     saveProblem(srcPath, problem);
     const doc = await vscode.workspace.openTextDocument(srcPath);
 

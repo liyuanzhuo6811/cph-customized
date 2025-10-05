@@ -252,7 +252,9 @@ export const getProblemFileName = (problem: Problem, ext: string) => {
             }
         })();
         
-        return `Other/${nameWithUnderscores}/${originName}`;
+        const originNameWithoutExt = path.parse(originName).name;
+        
+        return `Other/${originNameWithoutExt}/${originName}`;
     }
 };
 

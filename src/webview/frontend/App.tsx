@@ -208,9 +208,11 @@ function Judge(props: {
     };
 
     const refreshOnlineJudge = () => {
+        let sendEnv = 'false';
+        if (onlineJudgeEnv) sendEnv = 'true';
         sendMessageToVSCode({
             command: 'online-judge-env',
-            value: onlineJudgeEnv,
+            value: sendEnv,
         });
     };
 
@@ -324,9 +326,11 @@ function Judge(props: {
     const toggleOnlineJudgeEnv = () => {
         const newEnv = !onlineJudgeEnv;
         setOnlineJudgeEnv(newEnv);
+        let sendEnv = 'false';
+        if (newEnv) sendEnv = 'true';
         sendMessageToVSCode({
             command: 'online-judge-env',
-            value: newEnv,
+            value: sendEnv,
         });
     };
 

@@ -6,6 +6,7 @@ import * as vscode from 'vscode';
 export type prefSection =
     | 'general.saveLocation'
     | 'general.defaultLanguage'
+    | 'general.defaultOnlineJudge'
     | 'general.timeOut'
     | 'general.hideStderrorWhenCompiledOK'
     | 'general.ignoreSTDERROR'
@@ -46,6 +47,9 @@ export type prefSection =
     | 'language.haskell.Args'
     | 'language.haskell.SubmissionCompiler'
     | 'language.haskell.Command'
+    | 'language.cangjie.Args'
+    // | 'language.cangjie.SubmissionCompiler'  // Not support now
+    | 'language.cangjie.Command'
     | 'general.retainWebviewContext'
     | 'general.autoShowJudge'
     | 'general.defaultLanguageTemplateFileLocation'
@@ -71,7 +75,8 @@ export type LangNames =
     | 'js'
     | 'go'
     | 'hs'
-    | 'csharp';
+    | 'csharp'
+    | 'cangjie';
 
 export type TestCase = {
     input: string;
@@ -126,7 +131,7 @@ export type RunAllCommand = {
 
 export type OnlineJudgeEnv = {
     command: 'online-judge-env';
-    value: boolean;
+    value: string;
 };
 
 export type KillRunningCommand = {

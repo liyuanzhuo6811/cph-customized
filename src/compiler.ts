@@ -8,15 +8,17 @@ import {
     getCppOutputArgPref,
     getSaveLocationPref,
     getHideStderrorWhenCompiledOK,
+    getDefaultOnlineJudge,
 } from './preferences';
 import * as vscode from 'vscode';
 import { getJudgeViewProvider } from './extension';
 import { toAsciiFilename } from './utilsPure';
-export let onlineJudgeEnv = false;
+export let onlineJudgeEnv = getDefaultOnlineJudge();
 
 export const setOnlineJudgeEnv = (value: boolean) => {
     onlineJudgeEnv = value;
     globalThis.logger.log('online judge env:', onlineJudgeEnv);
+    globalThis.logger.log('default online judge env', getDefaultOnlineJudge());
 };
 
 /**
@@ -167,6 +169,10 @@ const getFlags = (language: Language, srcPath: string): string[] => {
                     ret.push('-define:ONLINE_JUDGE');
                 }
             }
+            break;
+        }
+        case 'cangjie': {
+            ret = [srcPath, '-o', getBinSaveLocation(srcPath), ...args];
             break;
         }
         default: {

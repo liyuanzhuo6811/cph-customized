@@ -167,7 +167,7 @@ export const setupCompanionServer = () => {
 const getProblemIdFromUrl = (url: string): string | null => {
     try {
         const urlObj = new URL(url);
-        
+
         if (isLuoguUrl(urlObj)) {
             // 洛谷URL格式：https://www.luogu.com.cn/problem/P1000
             const match = url.match(/problem\/(P\d+)/);
@@ -198,7 +198,7 @@ const getProblemIdFromUrl = (url: string): string | null => {
 const getLuoguCategory = (problemId: string): string => {
     const numMatch = problemId.match(/P(\d+)/);
     if (!numMatch) return 'P12001+';
-    
+
     const num = parseInt(numMatch[1]);
     if (num <= 3000) return 'P1000-P3000';
     if (num <= 6000) return 'P3001-P6000';
@@ -211,34 +211,57 @@ const getLuoguCategory = (problemId: string): string => {
 export const getProblemFileName = (problem: Problem, ext: string) => {
     const folder = vscode.workspace.workspaceFolders?.[0].uri.fsPath;
     const isOICodes = folder && path.basename(folder) === 'OI-Codes';
-    
+    globalThis.logger.log(
+        'Running Status: ',
+        config.port,
+        folder,
+        isOICodes,
+    );
     if (!isOICodes) {
-        // 保持原有逻辑
+        if (!includeProblemIndex()) {
+            const sections = problem.name.split(' - ');
+            if (sections.length > 1) {
+                problem.name = sections.splice(1).join();
+            }
+        }
         if (isCodeforcesUrl(new URL(problem.url)) && useShortCodeForcesName()) {
             return `${getProblemName(problem.url)}.${ext}`;
         } else if (isLuoguUrl(new URL(problem.url)) && useShortLuoguName()) {
+            // Url is like https://www.luogu.com.cn/problem/P1000
             const pattern = /problem\/(\w+)/;
             const match = problem.url.match(pattern);
             return `${match?.[1] ?? ''}.${ext}`;
         } else if (isAtCoderUrl(new URL(problem.url)) && useShortAtCoderName()) {
+            // Url is like https://atcoder.jp/contests/abc311/tasks/abc311_a
             const pattern = /tasks\/(\w+)_(\w+)/;
             const match = problem.url.match(pattern);
             return `${match?.[1] ?? ''}${match?.[2] ?? ''}.${ext}`;
         } else {
-            const words = words_in_text(problem.name);
-            if (words === null) {
-                return `${problem.name.replace(/\W+/g, '_')}.${ext}`;
-            } else {
-                return `${words.join('_')}.${ext}`;
-            }
-        }
+            globalThis.logger.log(
+                isCodeforcesUrl(new URL(problem.url)),
+                useShortCodeForcesName(),
+            );
 
-        return `${baseName}.${ext}`;
+            const words = words_in_text(problem.name, wordRegex());
+            let baseName: string;
+            if (words === null) {
+                baseName = problem.name.replace(/\W+/g, '_');
+            } else {
+                baseName = words.join('_');
+            }
+
+            // For Java, use PascalCase without underscores
+            if (ext === 'java') {
+                baseName = toPascalCase(baseName);
+            }
+
+            return `${baseName}.${ext}`;
+        }
     }
 
     // OI-Codes 文件夹下的新逻辑
     const problemId = getProblemIdFromUrl(problem.url);
-    
+
     if (isLuoguUrl(new URL(problem.url)) && problemId) {
         const category = getLuoguCategory(problemId);
         return `Luogu/${category}/${problemId}/${problemId}.${ext}`;
@@ -262,7 +285,7 @@ export const getProblemFileName = (problem: Problem, ext: string) => {
                 const match = problem.url.match(pattern);
                 return `${match?.[1] ?? ''}${match?.[2] ?? ''}.${ext}`;
             } else {
-                const words = words_in_text(problem.name);
+                const words = words_in_text(problem.name, wordRegex());
                 if (words === null) {
                     return `${problem.name.replace(/\W+/g, '_')}.${ext}`;
                 } else {
@@ -270,9 +293,9 @@ export const getProblemFileName = (problem: Problem, ext: string) => {
                 }
             }
         })();
-        
+
         const originNameWithoutExt = path.parse(originName).name;
-        
+
         return `Other/${originNameWithoutExt}/${originName}`;
     }
 };
@@ -328,7 +351,7 @@ const handleNewProblem = async (problem: Problem) => {
         const splitUrl = problem.url.split('/');
         problem.name = splitUrl[splitUrl.length - 1];
     }
-    
+
     const problemFileName = getProblemFileName(problem, extn);
     const srcPath = path.join(folder, problemFileName);
 

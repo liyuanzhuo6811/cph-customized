@@ -1,7 +1,6 @@
 # cph-customized
 
 专为OI-Codes的文件存储结构优化的cph。
-![Downloads](https://vsmarketplacebadges.dev/downloads-short/DivyanshuAgrawal.competitive-programming-helper.svg)
 
 Quickly compile, run and judge competitive programming problems in VS Code.
 Automatically download testcases , or write & test your own problems. Once you
